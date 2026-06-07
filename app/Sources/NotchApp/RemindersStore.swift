@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import EventKit
 import Foundation
+import SwiftUI
 
 struct ReminderItem: Identifiable {
     let id: String
@@ -97,7 +98,7 @@ final class RemindersStore: ObservableObject {
                 }
             }
             Task { @MainActor in
-                self?.reminders = sorted
+                withAnimation(.smooth(duration: 0.3)) { self?.reminders = sorted }
                 self?.ekById = byId
             }
         }

@@ -10,6 +10,33 @@ private func openURL(_ s: String) {
     NSWorkspace.shared.open(u)
 }
 
+// Adds hover highlight + tap affordance to any view, so clickable items feel
+// alive instead of static.
+private struct Clickable: ViewModifier {
+    let action: () -> Void
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.white.opacity(hover ? 0.12 : 0))
+            )
+            .contentShape(Rectangle())
+            .scaleEffect(hover ? 1.03 : 1)
+            .onHover { hover = $0 }
+            .onTapGesture(perform: action)
+            .animation(.easeOut(duration: 0.13), value: hover)
+    }
+}
+
+extension View {
+    func clickable(_ action: @escaping () -> Void) -> some View {
+        modifier(Clickable(action: action))
+    }
+}
+
 private func fmtTokens(_ t: Double) -> String {
     if t >= 1_000_000 { return String(format: "%.1fM", t / 1_000_000) }
     if t >= 1_000 { return String(format: "%.0fK", t / 1_000) }
@@ -145,17 +172,18 @@ private struct ProfileColumn: View {
                     }
                     Spacer()
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { openURL("https://github.com/\(github.profile.login)") }
+                .clickable { openURL("https://github.com/\(github.profile.login)") }
 
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(github.contributions.total)")
                         .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .contentTransition(.numericText())
                     Text("contributions / yr").font(.system(size: 10))
                         .foregroundStyle(.white.opacity(0.5))
                     Spacer()
                     Text("今日 \(github.contributions.today)")
                         .font(.system(size: 11, weight: .semibold))
+                        .contentTransition(.numericText())
                         .foregroundStyle(github.contributions.today > 0 ? .green : .white.opacity(0.5))
                 }
 
@@ -178,10 +206,10 @@ private struct ProfileColumn: View {
     private func stat(_ k: String, _ v: Int, _ url: String) -> some View {
         VStack(spacing: 2) {
             Text("\(v)").font(.system(size: 14, weight: .bold))
+                .contentTransition(.numericText())
             Text(k).font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
         }
-        .contentShape(Rectangle())
-        .onTapGesture { openURL(url) }
+        .clickable { openURL(url) }
     }
 }
 
@@ -229,6 +257,7 @@ private struct UsageColumn: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(fmtTokens(usage.today.tokens))
                         .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .contentTransition(.numericText())
                     Text("今日 tokens · ~$\(String(format: "%.1f", usage.today.cost))")
                         .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
                 }
@@ -263,6 +292,7 @@ private struct UsageColumn: View {
 
 private struct TodosColumn: View {
     @ObservedObject var reminders: RemindersStore
+    @State private var completing: Set<String> = []
 
     var body: some View {
         Panel {
@@ -274,6 +304,7 @@ private struct TodosColumn: View {
                     if reminders.authorized {
                         Text("\(reminders.reminders.count)")
                             .font(.system(size: 12, weight: .bold))
+                            .contentTransition(.numericText())
                             .foregroundStyle(.white.opacity(0.5))
                     }
                 }
@@ -285,30 +316,62 @@ private struct TodosColumn: View {
                     Text("全部完成 🎉").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
                 } else {
                     ForEach(reminders.reminders.prefix(8)) { item in
-                        HStack(alignment: .top, spacing: 7) {
-                            // Tap to complete
-                            Circle().strokeBorder(dotColor(item), lineWidth: 1.5)
-                                .frame(width: 12, height: 12).padding(.top, 1)
-                                .contentShape(Circle())
-                                .onTapGesture { reminders.complete(item.id) }
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(item.title).font(.system(size: 11)).lineLimit(1)
-                                if let due = item.due {
-                                    Text(dueLabel(due))
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(isOverdue(due) ? .red : .white.opacity(0.4))
-                                }
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture { reminders.openRemindersApp() }
-                            Spacer(minLength: 0)
-                        }
+                        row(item)
+                            .transition(.asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.combined(with: .move(edge: .leading))
+                            ))
                     }
                 }
                 Spacer(minLength: 0)
             }
         }
         .frame(width: 230)
+    }
+
+    private func row(_ item: ReminderItem) -> some View {
+        let done = completing.contains(item.id)
+        return HStack(alignment: .top, spacing: 7) {
+            // Tap to complete — fills with a check, then the row slides out.
+            ZStack {
+                Circle().strokeBorder(dotColor(item), lineWidth: 1.5)
+                    .opacity(done ? 0 : 1)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.green)
+                    .scaleEffect(done ? 1 : 0.1)
+                    .opacity(done ? 1 : 0)
+            }
+            .frame(width: 13, height: 13)
+            .padding(.top, 1)
+            .contentShape(Circle())
+            .onTapGesture { complete(item.id) }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title).font(.system(size: 11)).lineLimit(1)
+                    .strikethrough(done, color: .white.opacity(0.5))
+                if let due = item.due {
+                    Text(dueLabel(due))
+                        .font(.system(size: 9))
+                        .foregroundStyle(isOverdue(due) ? .red : .white.opacity(0.4))
+                }
+            }
+            .opacity(done ? 0.4 : 1)
+            .contentShape(Rectangle())
+            .onTapGesture { reminders.openRemindersApp() }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func complete(_ id: String) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            _ = completing.insert(id)
+        }
+        // Let the check animation play, then remove (list change animates the slide-out).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            reminders.complete(id)
+            completing.remove(id)
+        }
     }
 
     private func isOverdue(_ d: Date) -> Bool { d < Date() }

@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SwiftUI
 
 // Loads ~/.workhub/state.json and republishes it whenever the file changes.
 // Polls mtime on a timer — the file is tiny and the daemon writes atomically,
@@ -44,7 +45,8 @@ final class StateStore: ObservableObject {
 
         do {
             let data = try Data(contentsOf: path)
-            state = try JSONDecoder().decode(HubState.self, from: data)
+            let decoded = try JSONDecoder().decode(HubState.self, from: data)
+            withAnimation(.smooth(duration: 0.35)) { state = decoded }
             loadError = nil
         } catch {
             loadError = "无法读取 state.json：\(error.localizedDescription)"
