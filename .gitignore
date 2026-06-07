@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.DS_Store
+
+# secrets and generated state never get committed
+.workhub/
+secrets.json
+
+# Swift build output (the app is rebuilt by install.sh)
+app/.build/
+app/dist/NotchApp.app/Contents/MacOS/
+app/dist/NotchApp.app/Contents/_CodeSignature/

@@ -1,0 +1,15 @@
+{
+  "name": "hub-daemon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Work-hub backend: aggregates GitHub + AI usage into ~/.workhub/state.json",
+  "scripts": {
+    "start": "node src/index.ts",
+    "once": "node src/index.ts --once",
+    "dev": "node --watch src/index.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
