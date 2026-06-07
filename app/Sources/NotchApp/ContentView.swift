@@ -61,7 +61,8 @@ struct ExpandedPanel: View {
     @ObservedObject var pager: PagerModel
 
     private static let pageWidth: CGFloat = 490
-    private static let pageHeight: CGFloat = 238
+    // All cards sync to the tallest one (measured), so heights are never hardcoded.
+    @State private var cardHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 8) {
@@ -80,7 +81,7 @@ struct ExpandedPanel: View {
                 }
                 .frame(width: Self.pageWidth)
             }
-            .frame(width: Self.pageWidth, height: Self.pageHeight, alignment: .leading)
+            .frame(width: Self.pageWidth, alignment: .leading)
             .offset(x: CGFloat(-pager.page) * Self.pageWidth)
             .animation(.easeInOut(duration: 0.25), value: pager.page)
             .clipped()
@@ -96,6 +97,8 @@ struct ExpandedPanel: View {
                 Spacer()
             }
         }
+        .environment(\.cardMinHeight, cardHeight)
+        .onPreferenceChange(CardHeightKey.self) { cardHeight = $0 }
         .padding(14)
         .frame(width: Self.pageWidth + 28)
         .foregroundStyle(.white)
@@ -137,14 +140,40 @@ private struct PageControl: View {
     }
 }
 
+// Reports each card's natural height; the parent takes the max and feeds it back
+// down via `cardMinHeight`, so every card grows to the tallest. No hardcoded size.
+private struct CardHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct CardMinHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+extension EnvironmentValues {
+    var cardMinHeight: CGFloat {
+        get { self[CardMinHeightKey.self] }
+        set { self[CardMinHeightKey.self] = newValue }
+    }
+}
+
 private struct Panel<Content: View>: View {
+    @Environment(\.cardMinHeight) private var minHeight
     @ViewBuilder var content: Content
     var body: some View {
         content
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(12)
+            .frame(minHeight: minHeight, alignment: .topLeading)
             .background(Color.white.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: CardHeightKey.self, value: g.size.height)
+                }
+            )
     }
 }
 
