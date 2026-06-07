@@ -60,8 +60,8 @@ struct ExpandedPanel: View {
     @ObservedObject var reminders: RemindersStore
     @ObservedObject var pager: PagerModel
 
-    private static let pageWidth: CGFloat = 600
-    private static let pageHeight: CGFloat = 300
+    private static let pageWidth: CGFloat = 490
+    private static let pageHeight: CGFloat = 238
 
     var body: some View {
         VStack(spacing: 8) {
@@ -96,8 +96,8 @@ struct ExpandedPanel: View {
                 Spacer()
             }
         }
-        .padding(16)
-        .frame(width: Self.pageWidth + 32)
+        .padding(14)
+        .frame(width: Self.pageWidth + 28)
         .foregroundStyle(.white)
         .contextMenu {
             Button("刷新") { store.forceReload(); reminders.refresh() }
@@ -154,7 +154,7 @@ private struct ProfileColumn: View {
     var github: GitHubState
     var body: some View {
         Panel {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 10) {
                     AsyncImage(url: URL(string: github.profile.avatarUrl)) { img in
                         img.resizable().scaledToFill()
@@ -216,13 +216,13 @@ private struct ProfileColumn: View {
 private struct Heatmap: View {
     var weeks: [[Int]]
     var body: some View {
-        HStack(alignment: .top, spacing: 3) {
+        HStack(alignment: .top, spacing: 2.5) {
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
-                VStack(spacing: 3) {
+                VStack(spacing: 2.5) {
                     ForEach(0..<7, id: \.self) { day in
                         RoundedRectangle(cornerRadius: 2)
                             .fill(color(day < week.count ? week[day] : 0))
-                            .frame(width: 10, height: 10)
+                            .frame(width: 9, height: 9)
                     }
                 }
             }
@@ -248,15 +248,15 @@ private struct UsageColumn: View {
     var usage: ProviderUsage
     var body: some View {
         Panel {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Circle().fill(accent).frame(width: 8, height: 8)
                     Text(title).font(.system(size: 13, weight: .bold))
                 }
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(fmtTokens(usage.today.tokens))
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .contentTransition(.numericText())
                     Text("今日 tokens · ~$\(String(format: "%.1f", usage.today.cost))")
                         .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
@@ -326,7 +326,7 @@ private struct TodosColumn: View {
                 Spacer(minLength: 0)
             }
         }
-        .frame(width: 230)
+        .frame(width: 188)
     }
 
     private func row(_ item: ReminderItem) -> some View {
