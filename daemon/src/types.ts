@@ -69,6 +69,19 @@ export interface InboxItem {
   count: number; // how many notifications folded into this one
 }
 
+export interface ServerStatus {
+  name: string;
+  host: string;
+  os: "linux" | "windows";
+  online: boolean;
+  cpuPct: number | null; // 0-100 (load/cores for linux, LoadPercentage for windows)
+  memPct: number | null;
+  diskPct: number | null;
+  uptimeSec: number | null;
+  latencyMs: number | null;
+  error?: string;
+}
+
 export interface SourceStatus {
   ok: boolean;
   error?: string;
@@ -80,6 +93,7 @@ export interface HubState {
   github: GitHubState;
   usage: UsageState;
   inbox: InboxItem[];
+  servers: ServerStatus[];
   sources: Record<string, SourceStatus>;
 }
 

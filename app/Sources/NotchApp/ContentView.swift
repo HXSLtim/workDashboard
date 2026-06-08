@@ -50,7 +50,7 @@ private func fmtTokens(_ t: Double) -> String {
 @MainActor
 final class PagerModel: ObservableObject {
     @Published var page = 0
-    let count = 2
+    let count = 3
     func next() { page = min(count - 1, page + 1) }
     func prev() { page = max(0, page - 1) }
 }
@@ -78,6 +78,12 @@ struct ExpandedPanel: View {
                 HStack(alignment: .top, spacing: 12) {
                     UsageColumn(title: "Claude", accent: .orange, usage: store.state.usage.claude)
                     UsageColumn(title: "Codex", accent: .green, usage: store.state.usage.codex)
+                }
+                .frame(width: Self.pageWidth)
+
+                // Page 2 — servers
+                HStack(alignment: .top, spacing: 12) {
+                    ServersCard(servers: store.state.servers)
                 }
                 .frame(width: Self.pageWidth)
             }
@@ -418,5 +424,104 @@ private struct TodosColumn: View {
         else if Calendar.current.isDateInTomorrow(d) { f.dateFormat = "明天 HH:mm" }
         else { f.dateFormat = "M月d日" }
         return f.string(from: d)
+    }
+}
+
+// MARK: 服务器 (SSH-probed status)
+
+private struct ServersCard: View {
+    var servers: [ServerStatus]
+    var body: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "server.rack").font(.system(size: 11))
+                    Text("服务器").font(.system(size: 13, weight: .bold))
+                    Spacer()
+                    Text("\(servers.filter(\.online).count)/\(servers.count) 在线")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                }
+                if servers.isEmpty {
+                    Text("未配置（~/.workhub/servers.json）")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
+                }
+                ForEach(servers) { s in
+                    ServerRow(s: s)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ServerRow: View {
+    var s: ServerStatus
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Circle().fill(s.online ? .green : .red).frame(width: 7, height: 7)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(s.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                    Text(s.os == "windows" ? "Win" : "Linux")
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(Color.white.opacity(0.1)).clipShape(Capsule())
+                        .foregroundStyle(.white.opacity(0.6))
+                    Spacer()
+                    if let up = s.uptimeSec {
+                        Text(uptime(up)).font(.system(size: 9)).foregroundStyle(.white.opacity(0.4))
+                    }
+                    if let lat = s.latencyMs {
+                        Text("\(Int(lat))ms").font(.system(size: 9)).foregroundStyle(.white.opacity(0.4))
+                    }
+                }
+                if s.online {
+                    HStack(spacing: 8) {
+                        Meter(label: "CPU", pct: s.cpuPct)
+                        Meter(label: "内存", pct: s.memPct)
+                        Meter(label: "磁盘", pct: s.diskPct)
+                    }
+                } else {
+                    Text(s.error ?? "离线").font(.system(size: 9)).foregroundStyle(.red).lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private func uptime(_ sec: Double) -> String {
+        let d = Int(sec) / 86400
+        if d > 0 { return "\(d)d" }
+        return "\(Int(sec) / 3600)h"
+    }
+}
+
+private struct Meter: View {
+    var label: String
+    var pct: Double?
+    var body: some View {
+        let p = (pct ?? 0) / 100
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 3) {
+                Text(label).font(.system(size: 8)).foregroundStyle(.white.opacity(0.45))
+                Text(pct == nil ? "–" : "\(Int(pct!))%")
+                    .font(.system(size: 9, weight: .semibold))
+                    .contentTransition(.numericText())
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.12))
+                    Capsule().fill(color(p)).frame(width: max(2, g.size.width * p))
+                }
+            }
+            .frame(height: 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func color(_ p: Double) -> Color {
+        if p >= 0.9 { return .red }
+        if p >= 0.7 { return .orange }
+        return .green
     }
 }

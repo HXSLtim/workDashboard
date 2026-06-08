@@ -6,6 +6,36 @@ import { join } from "node:path";
 export const HUB_DIR = join(homedir(), ".workhub");
 export const STATE_PATH = join(HUB_DIR, "state.json");
 export const SECRETS_PATH = join(HUB_DIR, "secrets.json");
+export const SERVERS_PATH = join(HUB_DIR, "servers.json");
+
+export interface ServerConfig {
+  name: string;
+  host: string;
+  user: string;
+  port?: number;
+  os: "linux" | "windows";
+}
+
+export interface ServersFile {
+  identityFile: string; // path to the SSH private key (~ allowed)
+  servers: ServerConfig[];
+}
+
+// Reads ~/.workhub/servers.json (gitignored). Returns null if not configured.
+export function loadServers(): ServersFile | null {
+  try {
+    const f = JSON.parse(readFileSync(SERVERS_PATH, "utf8")) as ServersFile;
+    if (!Array.isArray(f.servers)) return null;
+    return f;
+  } catch {
+    return null;
+  }
+}
+
+// Expand a leading ~ to the home directory.
+export function expandHome(p: string): string {
+  return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
+}
 
 // Anthropic Admin API key (sk-ant-admin...) for the Usage & Cost API.
 // Resolution order: env var, then ~/.workhub/secrets.json {"anthropicAdminKey": "..."}.

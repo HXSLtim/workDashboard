@@ -3,6 +3,7 @@ import { writeState } from "./state.ts";
 import { fetchGitHub, fetchInbox } from "./sources/github.ts";
 import { fetchClaudeUsage } from "./sources/claudeUsage.ts";
 import { fetchCodexUsage } from "./sources/codexUsage.ts";
+import { fetchServers } from "./sources/servers.ts";
 import {
   emptyGitHub,
   emptyProviderUsage,
@@ -28,11 +29,12 @@ async function guard<T>(
 }
 
 async function collect(): Promise<HubState> {
-  const [github, inbox, claude, codex] = await Promise.all([
+  const [github, inbox, claude, codex, servers] = await Promise.all([
     guard("github", fetchGitHub, emptyGitHub()),
     guard("inbox", fetchInbox, []),
     guard("claude", fetchClaudeUsage, emptyProviderUsage()),
     guard("codex", fetchCodexUsage, emptyProviderUsage()),
+    guard("servers", fetchServers, []),
   ]);
 
   return {
@@ -40,11 +42,13 @@ async function collect(): Promise<HubState> {
     github: github.value,
     inbox: inbox.value,
     usage: { claude: claude.value, codex: codex.value },
+    servers: servers.value,
     sources: {
       github: github.status,
       inbox: inbox.status,
       claude: claude.status,
       codex: codex.status,
+      servers: servers.status,
     },
   };
 }

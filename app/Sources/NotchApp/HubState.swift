@@ -7,7 +7,22 @@ struct HubState: Codable {
     var github: GitHubState
     var usage: UsageState
     var inbox: [InboxItem]
+    var servers: [ServerStatus]
     var sources: [String: SourceStatus]
+}
+
+struct ServerStatus: Codable, Identifiable {
+    var id: String { name }
+    var name: String
+    var host: String
+    var os: String
+    var online: Bool
+    var cpuPct: Double?
+    var memPct: Double?
+    var diskPct: Double?
+    var uptimeSec: Double?
+    var latencyMs: Double?
+    var error: String?
 }
 
 struct GitHubState: Codable {
@@ -90,6 +105,7 @@ extension HubState {
         ),
         usage: UsageState(claude: .empty, codex: .empty),
         inbox: [],
+        servers: [],
         sources: [:]
     )
 }
