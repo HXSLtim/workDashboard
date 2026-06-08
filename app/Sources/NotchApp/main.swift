@@ -8,16 +8,23 @@ final class AppController {
     private let store = StateStore()
     private let reminders = RemindersStore()
     private let pager = PagerModel()
+    private let notifier = Notifier()
     private var notch: DynamicNotch<ExpandedPanel, EmptyView, EmptyView>!
     private var hoverCancellable: AnyCancellable?
     private var stateCancellable: AnyCancellable?
+    private var expandTask: Task<Void, Never>?
     private var scrollMonitor: Any?
     private var scrollLatched = false
-    private var knownRedCI: Set<String>?
+    // CI-failure notifications: only alert for failures that happen AFTER launch,
+    // and at most once per failure per session.
+    private let startTime = Date()
+    private let iso = ISO8601DateFormatter()
+    private var notifiedCIKeys = Set<String>()
 
     func start() {
         store.start()
         reminders.start()
+        notifier.start()
         let store = self.store
         let reminders = self.reminders
         let pager = self.pager
@@ -35,38 +42,46 @@ final class AppController {
         Task { await notch.compact() }
         hoverCancellable = notch.$isHovering
             .removeDuplicates()
-            .sink { [weak notch] hovering in
-                guard let notch else { return }
-                Task { @MainActor in
-                    if hovering { await notch.expand() } else { await notch.compact() }
-                }
+            .sink { [weak self] hovering in
+                Task { @MainActor in self?.handleHover(hovering) }
             }
 
         installScrollMonitor()
 
-        // Watch for newly-failed CI and briefly drop the notch open as an alert.
+        // Watch for new CI failures and post a banner.
         stateCancellable = store.$state.sink { [weak self] s in
             Task { @MainActor in self?.onState(s) }
         }
     }
 
-    private func onState(_ s: HubState) {
-        let red = Set(
-            (s.github.myOpenPRs + s.github.reviewRequestList)
-                .filter { $0.ciStatus == "red" }
-                .map(\.url)
-        )
-        guard let known = knownRedCI else {
-            knownRedCI = red // baseline on first load — don't alert
-            return
+    // Expand only after the mouse rests on the notch ~0.3s (so merely passing
+    // through to the menu bar / other apps doesn't trigger it); collapse instantly
+    // on exit to get out of the way.
+    private func handleHover(_ hovering: Bool) {
+        expandTask?.cancel()
+        guard let notch else { return }
+        if hovering {
+            expandTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                if !Task.isCancelled, notch.isHovering { await notch.expand() }
+            }
+        } else {
+            Task { @MainActor in await notch.compact() }
         }
-        let fresh = red.subtracting(known)
-        knownRedCI = red
-        guard !fresh.isEmpty, let notch, !notch.isHovering else { return }
-        Task { @MainActor in
-            await notch.expand()
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            if !notch.isHovering { await notch.compact() }
+    }
+
+    private func onState(_ s: HubState) {
+        // GitHub delivers workflow-run failures (main/branch CI) as notifications,
+        // not as PR check status — so we watch the inbox's CI items. Only alert for
+        // failures whose timestamp is after launch, once per failure per session.
+        let ciFailures = s.inbox.filter {
+            $0.type == "ci" && $0.title.lowercased().contains("fail")
+        }
+        for item in ciFailures {
+            guard !notifiedCIKeys.contains(item.id) else { continue }
+            notifiedCIKeys.insert(item.id) // mark so it never re-fires this session
+            guard let ts = iso.date(from: item.ts), ts >= startTime else { continue }
+            notifier.notify(title: "CI 失败", body: "\(item.repo) · \(item.title)", url: item.url)
         }
     }
 
