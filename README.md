@@ -30,6 +30,9 @@ hub-daemon (Node/TS)                         ← 后端，定时聚合
 - [x] **CI 实时活动** 紧凑区跑 CI 时脉冲指示；新失败时刘海短暂自动展开提醒
 - [x] **健康指示** 某 source 挂了面板底部红点提示
 - [x] **开机自启** `install.sh` 装 LaunchAgent，daemon+app 登录自启；用量扫描按 mtime 增量缓存
+- [x] **悬停 dwell** 鼠标在刘海停 ~0.3s 才展开（路过不触发，不挡其他 app）
+- [x] **CI 通知** 新的 workflow 失败 → macOS 系统通知横幅（点击跳转），启动后/每失败一次只弹一次
+- [x] **服务器监控** 第 3 页：SSH 探测 Linux(shell)/Windows(PowerShell) 的 CPU/内存/磁盘/在线/延迟，配置在 `~/.workhub/servers.json`
 - [ ] **Phase 4** Swift NotchApp：贴刘海 + 读 JSON + 收起/展开
 - [ ] **Phase 5** 实时活动动画、预算预警、点击跳转
 
